@@ -18,9 +18,9 @@ class PressureTempAltNode(Node):
     def __init__(self):
         super().__init__('pressure_alt_temp')
 
-        self.air_publisher = self.create_publisher(FluidPressure, "/air_pressure", 10)
-        self.temperature_publisher = self.create_publisher(Temperature, "/temperature", 10)
-        self.altitude_publisher = self.create_publisher(Float64, "/altitude", 10)
+        self.air_publisher = self.create_publisher(FluidPressure, "/imu/air_pressure", 10)
+        self.temperature_publisher = self.create_publisher(Temperature, "/imu/temperature", 10)
+        self.altitude_publisher = self.create_publisher(Float64, "/imu/altitude", 10)
 
         self.bmp388 = BMP388()
         timer_period = 0.1  # seconds

@@ -20,7 +20,7 @@
 import sys
 import time
 import math
-import IMU
+from .IMU import IMU
 import datetime
 import os
 
@@ -35,7 +35,6 @@ ACC_MEDIANTABLESIZE = 9         # Median filter table size for accelerometer. Hi
 MAG_MEDIANTABLESIZE = 9         # Median filter table size for magnetometer. Higher = smoother but a longer delay
 
 
-
 ################# Compass Calibration values ############
 # Use calibrateBerryIMU.py to get calibration values
 # Calibrating the compass isnt mandatory, however a calibrated
@@ -46,360 +45,371 @@ magZmin =  -257
 magXmax =  1668
 magYmax =  1319
 magZmax =  3202
-
-
-'''
-Here is an example:
-magXmin =  -1748
-magYmin =  -1025
-magZmin =  -1876
-magXmax =  959
-magYmax =  1651
-magZmax =  708
-Dont use the above values, these are just an example.
-'''
 ############### END Calibration offsets #################
 
 
 #Kalman filter variables
-Q_angle = 0.02
-Q_gyro = 0.0015
-R_angle = 0.005
-y_bias = 0.0
-x_bias = 0.0
-XP_00 = 0.0
-XP_01 = 0.0
-XP_10 = 0.0
-XP_11 = 0.0
-YP_00 = 0.0
-YP_01 = 0.0
-YP_10 = 0.0
-YP_11 = 0.0
-KFangleX = 0.0
-KFangleY = 0.0
-
-
-
-def kalmanFilterY ( accAngle, gyroRate, DT):
-    y=0.0
-    S=0.0
-
-    global KFangleY
-    global Q_angle
-    global Q_gyro
-    global y_bias
-    global YP_00
-    global YP_01
-    global YP_10
-    global YP_11
-
-    KFangleY = KFangleY + DT * (gyroRate - y_bias)
-
-    YP_00 = YP_00 + ( - DT * (YP_10 + YP_01) + Q_angle * DT )
-    YP_01 = YP_01 + ( - DT * YP_11 )
-    YP_10 = YP_10 + ( - DT * YP_11 )
-    YP_11 = YP_11 + ( + Q_gyro * DT )
-
-    y = accAngle - KFangleY
-    S = YP_00 + R_angle
-    K_0 = YP_00 / S
-    K_1 = YP_10 / S
-
-    KFangleY = KFangleY + ( K_0 * y )
-    y_bias = y_bias + ( K_1 * y )
-
-    YP_00 = YP_00 - ( K_0 * YP_00 )
-    YP_01 = YP_01 - ( K_0 * YP_01 )
-    YP_10 = YP_10 - ( K_1 * YP_00 )
-    YP_11 = YP_11 - ( K_1 * YP_01 )
-
-    return KFangleY
-
-def kalmanFilterX ( accAngle, gyroRate, DT):
-    x=0.0
-    S=0.0
-
-    global KFangleX
-    global Q_angle
-    global Q_gyro
-    global x_bias
-    global XP_00
-    global XP_01
-    global XP_10
-    global XP_11
-
-
-    KFangleX = KFangleX + DT * (gyroRate - x_bias)
-
-    XP_00 = XP_00 + ( - DT * (XP_10 + XP_01) + Q_angle * DT )
-    XP_01 = XP_01 + ( - DT * XP_11 )
-    XP_10 = XP_10 + ( - DT * XP_11 )
-    XP_11 = XP_11 + ( + Q_gyro * DT )
-
-    x = accAngle - KFangleX
-    S = XP_00 + R_angle
-    K_0 = XP_00 / S
-    K_1 = XP_10 / S
-
-    KFangleX = KFangleX + ( K_0 * x )
-    x_bias = x_bias + ( K_1 * x )
-
-    XP_00 = XP_00 - ( K_0 * XP_00 )
-    XP_01 = XP_01 - ( K_0 * XP_01 )
-    XP_10 = XP_10 - ( K_1 * XP_00 )
-    XP_11 = XP_11 - ( K_1 * XP_01 )
-
-    return KFangleX
-
-
-gyroXangle = 0.0
-gyroYangle = 0.0
-gyroZangle = 0.0
-CFangleX = 0.0
-CFangleY = 0.0
-CFangleXFiltered = 0.0
-CFangleYFiltered = 0.0
-kalmanX = 0.0
-kalmanY = 0.0
-oldXMagRawValue = 0
-oldYMagRawValue = 0
-oldZMagRawValue = 0
-oldXAccRawValue = 0
-oldYAccRawValue = 0
-oldZAccRawValue = 0
-
-a = datetime.datetime.now()
-
-
-
-#Setup the tables for the mdeian filter. Fill them all with '1' so we dont get devide by zero error
-acc_medianTable1X = [1] * ACC_MEDIANTABLESIZE
-acc_medianTable1Y = [1] * ACC_MEDIANTABLESIZE
-acc_medianTable1Z = [1] * ACC_MEDIANTABLESIZE
-acc_medianTable2X = [1] * ACC_MEDIANTABLESIZE
-acc_medianTable2Y = [1] * ACC_MEDIANTABLESIZE
-acc_medianTable2Z = [1] * ACC_MEDIANTABLESIZE
-mag_medianTable1X = [1] * MAG_MEDIANTABLESIZE
-mag_medianTable1Y = [1] * MAG_MEDIANTABLESIZE
-mag_medianTable1Z = [1] * MAG_MEDIANTABLESIZE
-mag_medianTable2X = [1] * MAG_MEDIANTABLESIZE
-mag_medianTable2Y = [1] * MAG_MEDIANTABLESIZE
-mag_medianTable2Z = [1] * MAG_MEDIANTABLESIZE
-
-IMU.detectIMU()     #Detect if BerryIMU is connected.
-if(IMU.BerryIMUversion == 99):
-    print(" No BerryIMU found... exiting ")
-    sys.exit()
-IMU.initIMU()       #Initialise the accelerometer, gyroscope and compass
-
-
-while True:
-
-    #Read the accelerometer,gyroscope and magnetometer values
-    ACCx = IMU.readACCx()
-    ACCy = IMU.readACCy()
-    ACCz = IMU.readACCz()
-    GYRx = IMU.readGYRx()
-    GYRy = IMU.readGYRy()
-    GYRz = IMU.readGYRz()
-    MAGx = IMU.readMAGx()
-    MAGy = IMU.readMAGy()
-    MAGz = IMU.readMAGz()
-
-
-    #Apply compass calibration
-    MAGx -= (magXmin + magXmax) /2
-    MAGy -= (magYmin + magYmax) /2
-    MAGz -= (magZmin + magZmax) /2
-
-
-    ##Calculate loop Period(LP). How long between Gyro Reads
-    b = datetime.datetime.now() - a
-    a = datetime.datetime.now()
-    LP = b.microseconds/(1000000*1.0)
-    outputString = "Loop Time %5.2f " % ( LP )
-
-
-
-    ###############################################
-    #### Apply low pass filter ####
-    ###############################################
-    MAGx =  MAGx  * MAG_LPF_FACTOR + oldXMagRawValue*(1 - MAG_LPF_FACTOR);
-    MAGy =  MAGy  * MAG_LPF_FACTOR + oldYMagRawValue*(1 - MAG_LPF_FACTOR);
-    MAGz =  MAGz  * MAG_LPF_FACTOR + oldZMagRawValue*(1 - MAG_LPF_FACTOR);
-    ACCx =  ACCx  * ACC_LPF_FACTOR + oldXAccRawValue*(1 - ACC_LPF_FACTOR);
-    ACCy =  ACCy  * ACC_LPF_FACTOR + oldYAccRawValue*(1 - ACC_LPF_FACTOR);
-    ACCz =  ACCz  * ACC_LPF_FACTOR + oldZAccRawValue*(1 - ACC_LPF_FACTOR);
-
-    oldXMagRawValue = MAGx
-    oldYMagRawValue = MAGy
-    oldZMagRawValue = MAGz
-    oldXAccRawValue = ACCx
-    oldYAccRawValue = ACCy
-    oldZAccRawValue = ACCz
-
-    #########################################
-    #### Median filter for accelerometer ####
-    #########################################
-    # cycle the table
-    for x in range (ACC_MEDIANTABLESIZE-1,0,-1 ):
-        acc_medianTable1X[x] = acc_medianTable1X[x-1]
-        acc_medianTable1Y[x] = acc_medianTable1Y[x-1]
-        acc_medianTable1Z[x] = acc_medianTable1Z[x-1]
-
-    # Insert the lates values
-    acc_medianTable1X[0] = ACCx
-    acc_medianTable1Y[0] = ACCy
-    acc_medianTable1Z[0] = ACCz
-
-    # Copy the tables
-    acc_medianTable2X = acc_medianTable1X[:]
-    acc_medianTable2Y = acc_medianTable1Y[:]
-    acc_medianTable2Z = acc_medianTable1Z[:]
-
-    # Sort table 2
-    acc_medianTable2X.sort()
-    acc_medianTable2Y.sort()
-    acc_medianTable2Z.sort()
-
-    # The middle value is the value we are interested in
-    ACCx = acc_medianTable2X[int(ACC_MEDIANTABLESIZE/2)];
-    ACCy = acc_medianTable2Y[int(ACC_MEDIANTABLESIZE/2)];
-    ACCz = acc_medianTable2Z[int(ACC_MEDIANTABLESIZE/2)];
-
-
-
-    #########################################
-    #### Median filter for magnetometer ####
-    #########################################
-    # cycle the table
-    for x in range (MAG_MEDIANTABLESIZE-1,0,-1 ):
-        mag_medianTable1X[x] = mag_medianTable1X[x-1]
-        mag_medianTable1Y[x] = mag_medianTable1Y[x-1]
-        mag_medianTable1Z[x] = mag_medianTable1Z[x-1]
 
-    # Insert the latest values
-    mag_medianTable1X[0] = MAGx
-    mag_medianTable1Y[0] = MAGy
-    mag_medianTable1Z[0] = MAGz
 
-    # Copy the tables
-    mag_medianTable2X = mag_medianTable1X[:]
-    mag_medianTable2Y = mag_medianTable1Y[:]
-    mag_medianTable2Z = mag_medianTable1Z[:]
 
-    # Sort table 2
-    mag_medianTable2X.sort()
-    mag_medianTable2Y.sort()
-    mag_medianTable2Z.sort()
+class BerryIMU:
+    def __init__(self):
+        self.gyroXangle = 0.0
+        self.gyroYangle = 0.0
+        self.gyroZangle = 0.0
+        self.CFangleX = 0.0
+        self.CFangleY = 0.0
+        self.CFangleXFiltered = 0.0
+        self.CFangleYFiltered = 0.0
+        self.kalmanX = 0.0
+        self.kalmanY = 0.0
+        self.oldXMagRawValue = 0
+        self.oldYMagRawValue = 0
+        self.oldZMagRawValue = 0
+        self.oldXAccRawValue = 0
+        self.oldYAccRawValue = 0
+        self.oldZAccRawValue = 0
 
-    # The middle value is the value we are interested in
-    MAGx = mag_medianTable2X[int(MAG_MEDIANTABLESIZE/2)];
-    MAGy = mag_medianTable2Y[int(MAG_MEDIANTABLESIZE/2)];
-    MAGz = mag_medianTable2Z[int(MAG_MEDIANTABLESIZE/2)];
+        self.a = datetime.datetime.now()
 
 
 
-    #Convert Gyro raw to degrees per second
-    rate_gyr_x =  GYRx * G_GAIN
-    rate_gyr_y =  GYRy * G_GAIN
-    rate_gyr_z =  GYRz * G_GAIN
+        #Setup the tables for the mdeian filter. Fill them all with '1' so we dont get devide by zero error
+        self.acc_medianTable1X = [1] * ACC_MEDIANTABLESIZE
+        self.acc_medianTable1Y = [1] * ACC_MEDIANTABLESIZE
+        self.acc_medianTable1Z = [1] * ACC_MEDIANTABLESIZE
+        self.acc_medianTable2X = [1] * ACC_MEDIANTABLESIZE
+        self.acc_medianTable2Y = [1] * ACC_MEDIANTABLESIZE
+        self.acc_medianTable2Z = [1] * ACC_MEDIANTABLESIZE
+        self.mag_medianTable1X = [1] * MAG_MEDIANTABLESIZE
+        self.mag_medianTable1Y = [1] * MAG_MEDIANTABLESIZE
+        self.mag_medianTable1Z = [1] * MAG_MEDIANTABLESIZE
+        self.mag_medianTable2X = [1] * MAG_MEDIANTABLESIZE
+        self.mag_medianTable2Y = [1] * MAG_MEDIANTABLESIZE
+        self.mag_medianTable2Z = [1] * MAG_MEDIANTABLESIZE
+
+        self.Q_angle = 0.02
+        self.Q_gyro = 0.0015
+        self.R_angle = 0.005
+        self.y_bias = 0.0
+        self.x_bias = 0.0
+        self.XP_00 = 0.0
+        self.XP_01 = 0.0
+        self.XP_10 = 0.0
+        self.XP_11 = 0.0
+        self.YP_00 = 0.0
+        self.YP_01 = 0.0
+        self.YP_10 = 0.0
+        self.YP_11 = 0.0
+        self.KFangleX = 0.0
+        self.KFangleY = 0.0
 
 
-    #Calculate the angles from the gyro.
-    gyroXangle+=rate_gyr_x*LP
-    gyroYangle+=rate_gyr_y*LP
-    gyroZangle+=rate_gyr_z*LP
+        detectIMU()     #Detect if BerryIMU is connected.
+        if(BerryIMUversion == 99):
+            print(" No BerryIMU found... exiting ")
+            sys.exit()
+        initIMU()       #Initialise the accelerometer, gyroscope and compass
+
+
+
+    def kalmanFilterY(self, accAngle, gyroRate, DT):
+        y=0.0
+        S=0.0
+
+
+        self.KFangleY = self.KFangleY + DT * (gyroRate - self.y_bias)
+
+        self.YP_00 = self.YP_00 + ( - DT * (self.YP_10 + self.YP_01) + self.Q_angle * DT )
+        self.YP_01 = self.YP_01 + ( - DT * self.YP_11 )
+        self.YP_10 = self.YP_10 + ( - DT * self.YP_11 )
+        self.YP_11 = self.YP_11 + ( + self.Q_gyro * DT )
+
+        y = accAngle - self.KFangleY
+        S = self.YP_00 + self.R_angle
+        K_0 = self.YP_00 / S
+        K_1 = self.YP_10 / S
+
+        self.KFangleY = self.KFangleY + ( K_0 * y )
+        self.y_bias = self.y_bias + ( K_1 * y )
+
+        self.YP_00 = self.YP_00 - ( K_0 * self.YP_00 )
+        self.YP_01 = self.YP_01 - ( K_0 * self.YP_01 )
+        self.YP_10 = self.YP_10 - ( K_1 * self.YP_00 )
+        self.YP_11 = self.YP_11 - ( K_1 * self.YP_01 )
+
+        return self.KFangleY
+
+    def kalmanFilterX(self, accAngle, gyroRate, DT):
+        x=0.0
+        S=0.0
+
+
+
+        self.KFangleX = self.KFangleX + DT * (gyroRate - self.x_bias)
+
+        self.XP_00 = self.XP_00 + ( - DT * (self.XP_10 + self.XP_01) + self.Q_angle * DT )
+        self.XP_01 = self.XP_01 + ( - DT * self.XP_11 )
+        self.XP_10 = self.XP_10 + ( - DT * self.XP_11 )
+        self.XP_11 = self.XP_11 + ( + self.Q_gyro * DT )
+
+        x = accAngle - self.KFangleX
+        S = self.XP_00 + self.R_angle
+        K_0 = self.XP_00 / S
+        K_1 = self.XP_10 / S
+
+        self.KFangleX = self.KFangleX + ( K_0 * x )
+        self.x_bias = self.x_bias + ( K_1 * x )
+
+        self.XP_00 = self.XP_00 - ( K_0 * self.XP_00 )
+        self.XP_01 = self.XP_01 - ( K_0 * self.XP_01 )
+        self.XP_10 = self.XP_10 - ( K_1 * self.XP_00 )
+        self.XP_11 = self.XP_11 - ( K_1 * self.XP_01 )
+
+        return self.KFangleX
+
+
+    def read_imu(self):
+
+        #Read the accelerometer,gyroscope and magnetometer values
+        self.ACCx = IMU.readACCx()
+        self.ACCy = IMU.readACCy()
+        self.ACCz = IMU.readACCz()
+        self.GYRx = IMU.readGYRx()
+        self.GYRy = IMU.readGYRy()
+        self.GYRz = IMU.readGYRz()
+        self.MAGx = IMU.readMAGx()
+        self.MAGy = IMU.readMAGy()
+        self.MAGz = IMU.readMAGz()
+
+
+        #Apply compass calibration
+        self.MAGx -= (magXmin + magXmax) /2
+        self.MAGy -= (magYmin + magYmax) /2
+        self.MAGz -= (magZmin + magZmax) /2
+
+
+        ##Calculate loop Period(LP). How long between Gyro Reads
+        b = datetime.datetime.now() - self.a
+        self.a = datetime.datetime.now()
+        LP = b.microseconds/(1000000*1.0)
+        outputString = "Loop Time %5.2f " % ( LP )
+
+
+
+        ###############################################
+        #### Apply low pass filter ####
+        ###############################################
+        self.MAGx =  self.MAGx  * MAG_LPF_FACTOR + self.oldXMagRawValue*(1 - MAG_LPF_FACTOR);
+        self.MAGy =  self.MAGy  * MAG_LPF_FACTOR + self.oldYMagRawValue*(1 - MAG_LPF_FACTOR);
+        self.MAGz =  self.MAGz  * MAG_LPF_FACTOR + self.oldZMagRawValue*(1 - MAG_LPF_FACTOR);
+        self.ACCx =  self.ACCx  * ACC_LPF_FACTOR + self.oldXAccRawValue*(1 - ACC_LPF_FACTOR);
+        self.ACCy =  self.ACCy  * ACC_LPF_FACTOR + self.oldYAccRawValue*(1 - ACC_LPF_FACTOR);
+        self.ACCz =  self.ACCz  * ACC_LPF_FACTOR + self.oldZAccRawValue*(1 - ACC_LPF_FACTOR);
+
+        self.oldXMagRawValue = self.MAGx
+        self.oldYMagRawValue = self.MAGy
+        self.oldZMagRawValue = self.MAGz
+        self.oldXAccRawValue = self.ACCx
+        self.oldYAccRawValue = self.ACCy
+        self.oldZAccRawValue = self.ACCz
 
-    #Convert Accelerometer values to degrees
-    AccXangle =  (math.atan2(ACCy,ACCz)*RAD_TO_DEG)
-    AccYangle =  (math.atan2(ACCz,ACCx)+M_PI)*RAD_TO_DEG
+        #########################################
+        #### Median filter for accelerometer ####
+        #########################################
+        # cycle the table
+        for x in range (ACC_MEDIANTABLESIZE-1,0,-1 ):
+            self.acc_medianTable1X[x] = self.acc_medianTable1X[x-1]
+            self.acc_medianTable1Y[x] = self.acc_medianTable1Y[x-1]
+            self.acc_medianTable1Z[x] = self.acc_medianTable1Z[x-1]
+
+        # Insert the lates values
+        self.acc_medianTable1X[0] = self.ACCx
+        self.acc_medianTable1Y[0] = self.ACCy
+        self.acc_medianTable1Z[0] = self.ACCz
+
+        # Copy the tables
+        acc_medianTable2X = self.acc_medianTable1X[:]
+        acc_medianTable2Y = self.acc_medianTable1Y[:]
+        acc_medianTable2Z = self.acc_medianTable1Z[:]
 
+        # Sort table 2
+        acc_medianTable2X.sort()
+        acc_medianTable2Y.sort()
+        acc_medianTable2Z.sort()
 
-    #Change the rotation value of the accelerometer to -/+ 180 and
-    #move the Y axis '0' point to up.  This makes it easier to read.
-    if AccYangle > 90:
-        AccYangle -= 270.0
-    else:
-        AccYangle += 90.0
+        # The middle value is the value we are interested in
+        self.ACCx = acc_medianTable2X[int(ACC_MEDIANTABLESIZE/2)];
+        self.ACCy = acc_medianTable2Y[int(ACC_MEDIANTABLESIZE/2)];
+        self.ACCz = acc_medianTable2Z[int(ACC_MEDIANTABLESIZE/2)];
+
+
+
+        #########################################
+        #### Median filter for magnetometer ####
+        #########################################
+        # cycle the table
+        for x in range (MAG_MEDIANTABLESIZE-1,0,-1 ):
+            self.mag_medianTable1X[x] = self.mag_medianTable1X[x-1]
+            self.mag_medianTable1Y[x] = self.mag_medianTable1Y[x-1]
+            self.mag_medianTable1Z[x] = self.mag_medianTable1Z[x-1]
 
+        # Insert the latest values
+        self.mag_medianTable1X[0] = self.MAGx
+        self.mag_medianTable1Y[0] = self.MAGy
+        self.mag_medianTable1Z[0] = self.MAGz
 
+        # Copy the tables
+        mag_medianTable2X = self.mag_medianTable1X[:]
+        mag_medianTable2Y = self.mag_medianTable1Y[:]
+        mag_medianTable2Z = self.mag_medianTable1Z[:]
 
-    #Complementary filter used to combine the accelerometer and gyro values.
-    CFangleX=AA*(CFangleX+rate_gyr_x*LP) +(1 - AA) * AccXangle
-    CFangleY=AA*(CFangleY+rate_gyr_y*LP) +(1 - AA) * AccYangle
+        # Sort table 2
+        mag_medianTable2X.sort()
+        mag_medianTable2Y.sort()
+        mag_medianTable2Z.sort()
 
-    #Kalman filter used to combine the accelerometer and gyro values.
-    kalmanY = kalmanFilterY(AccYangle, rate_gyr_y,LP)
-    kalmanX = kalmanFilterX(AccXangle, rate_gyr_x,LP)
+        # The middle value is the value we are interested in
+        self.MAGx = mag_medianTable2X[int(MAG_MEDIANTABLESIZE/2)];
+        self.MAGy = mag_medianTable2Y[int(MAG_MEDIANTABLESIZE/2)];
+        self.MAGz = mag_medianTable2Z[int(MAG_MEDIANTABLESIZE/2)];
 
-    #Calculate heading
-    heading = 180 * math.atan2(MAGy,MAGx)/M_PI
 
-    #Only have our heading between 0 and 360
-    if heading < 0:
-        heading += 360
 
-    ####################################################################
-    ###################Tilt compensated heading#########################
-    ####################################################################
-    #Normalize accelerometer raw values.
-    accXnorm = ACCx/math.sqrt(ACCx * ACCx + ACCy * ACCy + ACCz * ACCz)
-    accYnorm = ACCy/math.sqrt(ACCx * ACCx + ACCy * ACCy + ACCz * ACCz)
+        #Convert Gyro raw to degrees per second
+        rate_gyr_x =  self.GYRx * G_GAIN
+        rate_gyr_y =  self.GYRy * G_GAIN
+        rate_gyr_z =  self.GYRz * G_GAIN
 
 
-    #Calculate pitch and roll
-    pitch = math.asin(accXnorm)
-    roll = -math.asin(accYnorm/math.cos(pitch))
+        #Calculate the angles from the gyro.
+        self.gyroXangle+=rate_gyr_x*LP
+        self.gyroYangle+=rate_gyr_y*LP
+        self.gyroZangle+=rate_gyr_z*LP
 
+        #Convert Accelerometer values to degrees
+        AccXangle =  (math.atan2(self.ACCy,self.ACCz)*RAD_TO_DEG)
+        AccYangle =  (math.atan2(self.ACCz,self.ACCx)+M_PI)*RAD_TO_DEG
 
-    #Calculate the new tilt compensated values
-    #The compass and accelerometer are orientated differently on the the BerryIMUv1, v2 and v3.
-    #This needs to be taken into consideration when performing the calculations
 
-    #X compensation
-    if(IMU.BerryIMUversion == 1 or IMU.BerryIMUversion == 3):            #LSM9DS0 and (LSM6DSL & LIS2MDL)
-        magXcomp = MAGx*math.cos(pitch)+MAGz*math.sin(pitch)
-    else:                                                                #LSM9DS1
-        magXcomp = MAGx*math.cos(pitch)-MAGz*math.sin(pitch)
+        #Change the rotation value of the accelerometer to -/+ 180 and
+        #move the Y axis '0' point to up.  This makes it easier to read.
+        if AccYangle > 90:
+            AccYangle -= 270.0
+        else:
+            AccYangle += 90.0
 
-    #Y compensation
-    if(IMU.BerryIMUversion == 1 or IMU.BerryIMUversion == 3):            #LSM9DS0 and (LSM6DSL & LIS2MDL)
-        magYcomp = MAGx*math.sin(roll)*math.sin(pitch)+MAGy*math.cos(roll)-MAGz*math.sin(roll)*math.cos(pitch)
-    else:                                                                #LSM9DS1
-        magYcomp = MAGx*math.sin(roll)*math.sin(pitch)+MAGy*math.cos(roll)+MAGz*math.sin(roll)*math.cos(pitch)
 
 
+        #Complementary filter used to combine the accelerometer and gyro values.
+        self.CFangleX=AA*(self.CFangleX+rate_gyr_x*LP) +(1 - AA) * AccXangle
+        self.CFangleY=AA*(self.CFangleY+rate_gyr_y*LP) +(1 - AA) * AccYangle
 
+        #Kalman filter used to combine the accelerometer and gyro values.
+        self.kalmanY = self.kalmanFilterY(AccYangle, rate_gyr_y,LP)
+        self.kalmanX = self.kalmanFilterX(AccXangle, rate_gyr_x,LP)
 
+        #Calculate heading
+        heading = 180 * math.atan2(self.MAGy,self.MAGx)/M_PI
 
-    #Calculate tilt compensated heading
-    tiltCompensatedHeading = 180 * math.atan2(magYcomp,magXcomp)/M_PI
+        #Only have our heading between 0 and 360
+        if heading < 0:
+            heading += 360
 
-    if tiltCompensatedHeading < 0:
-        tiltCompensatedHeading += 360
+        ####################################################################
+        ###################Tilt compensated heading#########################
+        ####################################################################
+        #Normalize accelerometer raw values.
+        self.accXnorm = self.ACCx/math.sqrt(self.ACCx * self.ACCx + self.ACCy * self.ACCy + self.ACCz * self.ACCz)
+        self.accYnorm = self.ACCy/math.sqrt(self.ACCx * self.ACCx + self.ACCy * self.ACCy + self.ACCz * self.ACCz)
 
 
-    ##################### END Tilt Compensation ########################
+        #Calculate self.pitch and self.roll
+        self.pitch = math.asin(self.accXnorm)
+        self.roll = -math.asin(self.accYnorm/math.cos(self.pitch))
 
 
-    if 1:                       #Change to '0' to stop showing the angles from the accelerometer
-        outputString += "#  ACCX Angle %5.2f ACCY Angle %5.2f  #  " % (AccXangle, AccYangle)
+        #Calculate the new tilt compensated values
+        #The compass and accelerometer are orientated differently on the the BerryIMUv1, v2 and v3.
+        #This needs to be taken into consideration when performing the calculations
 
-    if 1:                       #Change to '0' to stop  showing the angles from the gyro
-        outputString +="\t# GRYX Angle %5.2f  GYRY Angle %5.2f  GYRZ Angle %5.2f # " % (gyroXangle,gyroYangle,gyroZangle)
+        #X compensation
+        if(IMU.BerryIMUversion == 1 or IMU.BerryIMUversion == 3):            #LSM9DS0 and (LSM6DSL & LIS2MDL)
+            self.magXcomp = self.MAGx*math.cos(self.pitch)+self.MAGz*math.sin(self.pitch)
+        else:                                                                #LSM9DS1
+            self.magXcomp = self.MAGx*math.cos(self.pitch)-self.MAGz*math.sin(self.pitch)
 
-    if 1:                       #Change to '0' to stop  showing the angles from the complementary filter
-        outputString +="\t#  CFangleX Angle %5.2f   CFangleY Angle %5.2f  #" % (CFangleX,CFangleY)
+        #Y compensation
+        if(IMU.BerryIMUversion == 1 or IMU.BerryIMUversion == 3):            #LSM9DS0 and (LSM6DSL & LIS2MDL)
+            self.magYcomp = self.MAGx*math.sin(self.roll)*math.sin(self.pitch)+self.MAGy*math.cos(self.roll)-self.MAGz*math.sin(self.roll)*math.cos(self.pitch)
+        else:                                                                #LSM9DS1
+            self.magYcomp = self.MAGx*math.sin(self.roll)*math.sin(self.pitch)+self.MAGy*math.cos(self.roll)+self.MAGz*math.sin(self.roll)*math.cos(self.pitch)
+        
 
-    if 1:                       #Change to '0' to stop  showing the heading
-        outputString +="\t# HEADING %5.2f  tiltCompensatedHeading %5.2f #" % (heading,tiltCompensatedHeading)
 
-    if 1:                       #Change to '0' to stop  showing the angles from the Kalman filter
-        outputString +="# kalmanX %5.2f   kalmanY %5.2f #" % (kalmanX,kalmanY)
 
-    print(outputString)
 
-    #slow program down a bit, makes the output more readable
-    time.sleep(0.03)
+        #Calculate tilt compensated heading
+        tiltCompensatedHeading = 180 * math.atan2(self.magYcomp,self.magXcomp)/M_PI
 
+        if tiltCompensatedHeading < 0:
+            tiltCompensatedHeading += 360
+
+
+        ##################### END Tilt Compensation ########################
+
+        # return (self.magXcomp, self.magYcomp, AccXangle, AccYangle, self.gyroXangle, self.gyroYangle, self.gyroZangle, self.CFangleX, self.CFangleY, heading, tiltCompensatedHeading, self.kalmanX, self.kalmanY)
+
+
+        # if 1:                       #Change to '0' to stop showing the angles from the accelerometer
+        #     outputString += "#  self.ACCx Angle %5.2f self.ACCy Angle %5.2f  #  " % (AccXangle, AccYangle)
+
+        # if 1:                       #Change to '0' to stop  showing the angles from the gyro
+        #     outputString +="\t# GRYX Angle %5.2f  self.GYRy Angle %5.2f  self.GYRz Angle %5.2f # " % (self.gyroXangle,self.gyroYangle,self.gyroZangle)
+
+        # if 1:                       #Change to '0' to stop  showing the angles from the complementary filter
+        #     outputString +="\t#  self.CFangleX Angle %5.2f   self.CFangleY Angle %5.2f  #" % (self.CFangleX,self.CFangleY)
+
+        # if 1:                       #Change to '0' to stop  showing the heading
+        #     outputString +="\t# HEADING %5.2f  tiltCompensatedHeading %5.2f #" % (heading,tiltCompensatedHeading)
+
+        # if 1:                       #Change to '0' to stop  showing the angles from the Kalman filter
+        #     outputString +="# self.kalmanX %5.2f   self.kalmanY %5.2f #" % (self.kalmanX,self.kalmanY)
+
+        # print(outputString)
+
+        #slow program down a bit, makes the output more readable
+        # time.sleep(0.03)
+
+if __name__ == "__main__":
+    imu = BerryIMU()
+    
+    while True:
+        imu.read_imu()
+
+
+        # print(f"Magnetometer: {imu.magXcomp}, {imu.magYcomp}")
+        print(f"Accelometer: {imu.accXnorm}, {imu.accYnorm}")
+        
+        # outputString = ""
+        
+        # if 1:                       #Change to '0' to stop showing the angles from the accelerometer
+        #     outputString += "#  self.ACCx Angle %5.2f self.ACCy Angle %5.2f  #  " % (AccXangle, AccYangle)
+
+        # if 1:                       #Change to '0' to stop  showing the angles from the gyro
+        #     outputString +="\t# GRYX Angle %5.2f  self.GYRy Angle %5.2f  self.GYRz Angle %5.2f # " % (gyroXangle,gyroYangle,gyroZangle)
+
+        # if 1:                       #Change to '0' to stop  showing the angles from the complementary filter
+        #     outputString +="\t#  self.CFangleX Angle %5.2f   self.CFangleY Angle %5.2f  #" % (CFangleX,CFangleY)
+
+        # if 1:                       #Change to '0' to stop  showing the heading
+        #     outputString +="\t# HEADING %5.2f  tiltCompensatedHeading %5.2f #" % (heading,tiltCompensatedHeading)
+
+        # if 1:                       #Change to '0' to stop  showing the angles from the Kalman filter
+        #     outputString +="# self.kalmanX %5.2f   self.kalmanY %5.2f #" % (kalmanX,kalmanY)
+        
+
+        # print(outputString)
+
+        
+        time.sleep(0.1)
