@@ -18,7 +18,7 @@ class IMU_ROS(Node):
         self.magnetometer_publisher = self.create_publisher(MagneticField, "/imu/compass", 10)
         self.position_publisher = self.create_publisher(PoseStamped, "/imu/pose", 10)
 
-        self.timer_period = 0.005  # Seconds (1 / 200 Hz)
+        self.timer_period = 1  # Seconds (1 / 200 Hz)
         self.timer = self.create_timer(self.timer_period, self.publish)
 
         self.imu = BerryIMU()
@@ -58,13 +58,13 @@ class IMU_ROS(Node):
         self.imu_publisher.publish(imu_msg)
 
         # Magnetometer
-        magnetometer_msg.magnetic_field = Vector3(self.imu.magXcomp, self.imu.magYcomp, np.NaN)
+        magnetometer_msg.magnetic_field = Vector3(x=self.imu.magXcomp, y=self.imu.magYcomp, z=np.NaN)
 
         self.magnetometer_publisher.publish(magnetometer_msg)
 
         # Position
         position_msg.pose = Pose()
-        position_msg.pose.position = Point(self.imu.kalmanX, self.imu.kalmanY)
+        position_msg.pose.position = Point(x=self.imu.kalmanX, y=self.imu.kalmanY)
         position_msg.pose.orientation = imu_msg.orientation
 
         self.position_publisher.publish(position_msg) 

@@ -22,8 +22,6 @@ import time
 import math
 from .IMU import IMU
 import datetime
-import os
-
 
 RAD_TO_DEG = 57.29578
 M_PI = 3.14159265358979323846
@@ -34,6 +32,7 @@ ACC_LPF_FACTOR = 0.4    # Low pass filter constant for accelerometer
 ACC_MEDIANTABLESIZE = 9         # Median filter table size for accelerometer. Higher = smoother but a longer delay
 MAG_MEDIANTABLESIZE = 9         # Median filter table size for magnetometer. Higher = smoother but a longer delay
 
+berry_imu_version = 99
 
 ################# Compass Calibration values ############
 # Use calibrateBerryIMU.py to get calibration values
@@ -103,13 +102,14 @@ class BerryIMU:
         self.YP_11 = 0.0
         self.KFangleX = 0.0
         self.KFangleY = 0.0
+        self.imu = IMU()
 
 
-        detectIMU()     #Detect if BerryIMU is connected.
-        if(BerryIMUversion == 99):
+        self.imu.detectIMU()     #Detect if BerryIMU is connected.
+        if(self.imu.berry_imu_version == 99):
             print(" No BerryIMU found... exiting ")
             sys.exit()
-        initIMU()       #Initialise the accelerometer, gyroscope and compass
+        self.imu.initIMU()       #Initialise the accelerometer, gyroscope and compass
 
 
 
@@ -172,15 +172,15 @@ class BerryIMU:
     def read_imu(self):
 
         #Read the accelerometer,gyroscope and magnetometer values
-        self.ACCx = IMU.readACCx()
-        self.ACCy = IMU.readACCy()
-        self.ACCz = IMU.readACCz()
-        self.GYRx = IMU.readGYRx()
-        self.GYRy = IMU.readGYRy()
-        self.GYRz = IMU.readGYRz()
-        self.MAGx = IMU.readMAGx()
-        self.MAGy = IMU.readMAGy()
-        self.MAGz = IMU.readMAGz()
+        self.ACCx = self.imu.readACCx()
+        self.ACCy = self.imu.readACCy()
+        self.ACCz = self.imu.readACCz()
+        self.GYRx = self.imu.readGYRx()
+        self.GYRy = self.imu.readGYRy()
+        self.GYRz = self.imu.readGYRz()
+        self.MAGx = self.imu.readMAGx()
+        self.MAGy = self.imu.readMAGy()
+        self.MAGz = self.imu.readMAGz()
 
 
         #Apply compass calibration
@@ -200,12 +200,12 @@ class BerryIMU:
         ###############################################
         #### Apply low pass filter ####
         ###############################################
-        self.MAGx =  self.MAGx  * MAG_LPF_FACTOR + self.oldXMagRawValue*(1 - MAG_LPF_FACTOR);
-        self.MAGy =  self.MAGy  * MAG_LPF_FACTOR + self.oldYMagRawValue*(1 - MAG_LPF_FACTOR);
-        self.MAGz =  self.MAGz  * MAG_LPF_FACTOR + self.oldZMagRawValue*(1 - MAG_LPF_FACTOR);
-        self.ACCx =  self.ACCx  * ACC_LPF_FACTOR + self.oldXAccRawValue*(1 - ACC_LPF_FACTOR);
-        self.ACCy =  self.ACCy  * ACC_LPF_FACTOR + self.oldYAccRawValue*(1 - ACC_LPF_FACTOR);
-        self.ACCz =  self.ACCz  * ACC_LPF_FACTOR + self.oldZAccRawValue*(1 - ACC_LPF_FACTOR);
+        self.MAGx =  self.MAGx  * MAG_LPF_FACTOR + self.oldXMagRawValue*(1 - MAG_LPF_FACTOR)
+        self.MAGy =  self.MAGy  * MAG_LPF_FACTOR + self.oldYMagRawValue*(1 - MAG_LPF_FACTOR)
+        self.MAGz =  self.MAGz  * MAG_LPF_FACTOR + self.oldZMagRawValue*(1 - MAG_LPF_FACTOR)
+        self.ACCx =  self.ACCx  * ACC_LPF_FACTOR + self.oldXAccRawValue*(1 - ACC_LPF_FACTOR)
+        self.ACCy =  self.ACCy  * ACC_LPF_FACTOR + self.oldYAccRawValue*(1 - ACC_LPF_FACTOR)
+        self.ACCz =  self.ACCz  * ACC_LPF_FACTOR + self.oldZAccRawValue*(1 - ACC_LPF_FACTOR)
 
         self.oldXMagRawValue = self.MAGx
         self.oldYMagRawValue = self.MAGy
@@ -239,9 +239,9 @@ class BerryIMU:
         acc_medianTable2Z.sort()
 
         # The middle value is the value we are interested in
-        self.ACCx = acc_medianTable2X[int(ACC_MEDIANTABLESIZE/2)];
-        self.ACCy = acc_medianTable2Y[int(ACC_MEDIANTABLESIZE/2)];
-        self.ACCz = acc_medianTable2Z[int(ACC_MEDIANTABLESIZE/2)];
+        self.ACCx = acc_medianTable2X[int(ACC_MEDIANTABLESIZE/2)]
+        self.ACCy = acc_medianTable2Y[int(ACC_MEDIANTABLESIZE/2)]
+        self.ACCz = acc_medianTable2Z[int(ACC_MEDIANTABLESIZE/2)]
 
 
 
@@ -270,9 +270,9 @@ class BerryIMU:
         mag_medianTable2Z.sort()
 
         # The middle value is the value we are interested in
-        self.MAGx = mag_medianTable2X[int(MAG_MEDIANTABLESIZE/2)];
-        self.MAGy = mag_medianTable2Y[int(MAG_MEDIANTABLESIZE/2)];
-        self.MAGz = mag_medianTable2Z[int(MAG_MEDIANTABLESIZE/2)];
+        self.MAGx = mag_medianTable2X[int(MAG_MEDIANTABLESIZE/2)]
+        self.MAGy = mag_medianTable2Y[int(MAG_MEDIANTABLESIZE/2)]
+        self.MAGz = mag_medianTable2Z[int(MAG_MEDIANTABLESIZE/2)]
 
 
 
@@ -334,13 +334,13 @@ class BerryIMU:
         #This needs to be taken into consideration when performing the calculations
 
         #X compensation
-        if(IMU.BerryIMUversion == 1 or IMU.BerryIMUversion == 3):            #LSM9DS0 and (LSM6DSL & LIS2MDL)
+        if(self.imu.berry_imu_version == 1 or self.imu.berry_imu_version == 3):            #LSM9DS0 and (LSM6DSL & LIS2MDL)
             self.magXcomp = self.MAGx*math.cos(self.pitch)+self.MAGz*math.sin(self.pitch)
         else:                                                                #LSM9DS1
             self.magXcomp = self.MAGx*math.cos(self.pitch)-self.MAGz*math.sin(self.pitch)
 
         #Y compensation
-        if(IMU.BerryIMUversion == 1 or IMU.BerryIMUversion == 3):            #LSM9DS0 and (LSM6DSL & LIS2MDL)
+        if(self.imu.berry_imu_version == 1 or self.imu.berry_imu_version == 3):            #LSM9DS0 and (LSM6DSL & LIS2MDL)
             self.magYcomp = self.MAGx*math.sin(self.roll)*math.sin(self.pitch)+self.MAGy*math.cos(self.roll)-self.MAGz*math.sin(self.roll)*math.cos(self.pitch)
         else:                                                                #LSM9DS1
             self.magYcomp = self.MAGx*math.sin(self.roll)*math.sin(self.pitch)+self.MAGy*math.cos(self.roll)+self.MAGz*math.sin(self.roll)*math.cos(self.pitch)
