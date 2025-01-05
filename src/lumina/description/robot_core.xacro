@@ -45,7 +45,7 @@
             <origin xyz="0.18 0.0 0.08" rpy="0.0 0.0 0.0" />
 
             <geometry>
-                <box size="0.24 0.24 0.16" />
+                <box size="0.24 0.24 0.18" />
             </geometry>
             <material name="white" />
         </visual>
