@@ -42,7 +42,7 @@
         <visual>
             <!-- We are going 1/2 its length in x and z to move the visuals to where we said it
             should be in the chassis -->
-            <origin xyz="0.12 0.0 0.08" rpy="0.0 0.0 0.0" />
+            <origin xyz="0.18 0.0 0.08" rpy="0.0 0.0 0.0" />
 
             <geometry>
                 <box size="0.24 0.24 0.16" />
@@ -52,16 +52,23 @@
         <collision>
             <!-- We are going 1/2 its length in x and z to move the visuals to where we said it
             should be in the chassis -->
-            <origin xyz="0.12 0.0 0.08" rpy="0.0 0.0 0.0" />
+            <origin xyz="0.18 0.0 0.08" rpy="0.0 0.0 0.0" />
 
             <geometry>
                 <box size="0.24 0.24 0.16" />
             </geometry>
         </collision>
         <xacro:inertial_box mass="0.5" x="0.24" y="0.24" z="0.16">
-            <origin xyz="0.12 0.0 0.08" rpy="0.0 0.0 0.0"/>
+            <origin xyz="0.18 0.0 0.08" rpy="0.0 0.0 0.0"/>
         </xacro:inertial_box>
     </link>
+
+    <gazebo reference="chassis">
+        <material>
+            Gazebo/White   
+        </material>
+    </gazebo>
+
 
     <!-- LEFT WHEEL LINK -->
     <joint name="left_wheel_joint" type="continuous">
@@ -88,6 +95,12 @@
         </xacro:inertial_cylinder>
     </link>
 
+    <gazebo reference="left_wheel">
+        <material>
+            Gazebo/Blue   
+        </material>
+    </gazebo>
+
     <!-- RIGHT WHEEL LINK -->
     <joint name="right_wheel_joint" type="continuous">
         <parent link="base_link" />
@@ -113,29 +126,43 @@
         </xacro:inertial_cylinder>
     </link>
 
+    <gazebo reference="right_wheel">
+        <material>
+            Gazebo/Blue   
+        </material>
+    </gazebo>
+
     <!-- CASTER WHEEL LINK -->
     <joint name="caster_wheel_joint" type="fixed">
         <parent link="chassis" />
         <child link="caster_wheel" />
-        <origin xyz="0.188 0.0 0.0" rpy="0.0 0.0 0.0" />
+        <origin xyz="0.248 0.0 0.0" rpy="0.0 0.0 0.0" />
     </joint>
 
     <link name="caster_wheel">
         <visual>
             <geometry>
-                <sphere radius="0.025" />
+                <sphere radius="0.03" />
             </geometry>
             <material name="black" />
         </visual>
         <collision>
             <geometry>
-                <sphere radius="0.025" />
+                <sphere radius="0.03" />
             </geometry>
         </collision>
-        <xacro:inertial_sphere mass="0.1" radius="0.025">
+        <xacro:inertial_sphere mass="0.1" radius="0.03">
             <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
         </xacro:inertial_sphere>
     </link>
+
+    <gazebo reference="caster_wheel">
+        <material>
+            Gazebo/Black   
+        </material>
+        <mu1 value="0.001" />
+        <mu2 value="0.001" />
+    </gazebo>
 
 
 </robot>
