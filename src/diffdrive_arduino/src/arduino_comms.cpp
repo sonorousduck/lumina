@@ -35,6 +35,20 @@ void ArduinoComms::readEncoderValues(int &val_1, int &val_2)
     val_2 = std::atoi(token_2.c_str());
 }
 
+void ArduinoComms::readVoltageValues(double& value)
+{
+    std::string response = sendMsg("v\r");
+
+    std::string delimiter = " ";
+    size_t del_pos = response.find(delimiter);
+    std::string token_1 = response.substr(0, del_pos);
+    try {
+        value = std::stod(token_1.c_str());
+    } catch (...) {
+        value = 0.0;
+    }
+}
+
 void ArduinoComms::setMotorValues(int val_1, int val_2)
 {
     std::stringstream ss;

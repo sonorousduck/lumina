@@ -17,6 +17,7 @@ find_package(hardware_interface REQUIRED)
 find_package(controller_manager REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(pluginlib REQUIRED)
+find_package(std_msgs REQUIRED)
 
 
 
@@ -37,6 +38,7 @@ ament_target_dependencies(
   serial
   rclcpp
   pluginlib
+  std_msgs
 )
 
 pluginlib_export_plugin_description_file(hardware_interface robot_hardware.xml)

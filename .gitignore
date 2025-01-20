@@ -10,6 +10,7 @@
 !.vscode/extensions.json
 !.vscode/settings.json
 
+.vscode
 # colcon/CMake output
 build
 install

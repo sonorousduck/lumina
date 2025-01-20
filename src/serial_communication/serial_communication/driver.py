@@ -69,14 +69,17 @@ class ArduinoComms(Node):
     def read_voltage(self):
         resp = self.send_command(f"v")
         if resp:
-            voltage = float(resp)
-            voltage_msg = Float64()
-            percentage_msg = Float64()
-            voltage_msg.data = voltage
-            percentage_msg.data = voltage / self.max_battery_charge_voltage
-            
-            self.battery_percent_pub.publish(percentage_msg)
-            self.voltage_pub.publish(voltage_msg)
+            try:
+                voltage = float(resp)
+                voltage_msg = Float64()
+                percentage_msg = Float64()
+                voltage_msg.data = voltage
+                percentage_msg.data = voltage / self.max_battery_charge_voltage
+                
+                self.battery_percent_pub.publish(percentage_msg)
+                self.voltage_pub.publish(voltage_msg)
+            except Exception:
+                pass
     
     
     # More user-friendly functions
