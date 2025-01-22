@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <joint name="imu_joint" type="fixed">
+        <parent link="chassis"/>
+        <child link="imu_frame" />
+        <origin xyz="0.0 0.0 0.8" rpy="0.0 0.0 0.0" />
+    </joint>
+
+    <!-- IMU frame -->
+    <link name="imu_frame">
+        <visual>
+            <geometry>
+                <box size="0.05 0.05 0.02"/>
+            </geometry>
+            <material name="blue"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.05 0.05 0.02"/>
+            </geometry>
+        </collision>
+        <xacro:inertial_box mass="0.05" size="0.05 0.05 0.02">
+            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+        </xacro:inertial_box>
+    </link>
+
+<gazebo reference="imu_frame">
+        <material>Gazebo/Gray</material>
+        
+        <sensor name="imu" type="imu">
+            <pose>0 0 0 0 0 0</pose>
+            <update_rate>50</update_rate>
+            <imu>
+                <angular_velocity>
+                    <x>true</x>
+                    <y>true</y>
+                    <z>true</z>
+                </angular_velocity>
+                <linear_acceleration>
+                    <x>true</x>
+                    <y>true</y>
+                    <z>true</z>
+                </linear_acceleration>
+                <orientation>
+                    <x>true</x>
+                    <y>true</y>
+                    <z>true</z>
+                </orientation>
+            </imu>
+            <plugin name="imu_controller" filename="libgazebo_ros_imu_sensor.so">
+                <ros>
+                    <argument>~/out:=imu/data</argument>
+                </ros>
+                <output_type>sensor_msgs/Imu</output_type>
+                <frame_name>imu_frame</frame_name>
+            </plugin>
+        </sensor>
+    </gazebo>
+
+</robot>

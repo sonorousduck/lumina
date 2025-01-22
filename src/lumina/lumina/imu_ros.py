@@ -33,9 +33,9 @@ class IMU_ROS(Node):
         imu_msg.header.stamp = self.get_clock().now().to_msg()
         magnetometer_msg.header.stamp = imu_msg.header.stamp
         position_msg.header.stamp = imu_msg.header.stamp
-        imu_msg.header.frame_id = "imu_link"
-        magnetometer_msg.header.frame_id = "imu_link"
-        position_msg.header.frame_id = "imu_link"
+        imu_msg.header.frame_id = "imu_frame"
+        magnetometer_msg.header.frame_id = "imu_frame"
+        position_msg.header.frame_id = "imu_frame"
 
         # Convert Kalman angles to quaternion
         quaternion = tf_trans.quaternion_from_euler(self.imu.roll, self.imu.pitch, 0.0)
