@@ -151,12 +151,18 @@ def generate_launch_description():
         output="screen"
     )
     
-    # arduino_information = Node(
-    #     package="serial_communication",
-    #     executable="arduino",
-    #     output="screen"
-    # )
+    # Process the URDF file
+    ekf_yaml_path = os.path.join(pkg_path, 'config', 'ekf.yaml')
     
+    imu_filtered = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_filter_node',
+        output='screen',
+        parameters=[ekf_yaml_path]
+    )
+    
+
     
     nodes = [
         control_node,
@@ -168,6 +174,7 @@ def generate_launch_description():
         lidar,
         imu,
         pressure_temperature,
+        imu_filtered
     ]
     
     return LaunchDescription(declared_arguments + nodes)
